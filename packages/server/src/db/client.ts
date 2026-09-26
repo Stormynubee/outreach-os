@@ -8,9 +8,16 @@ import { DEFAULT_SETTINGS, type Settings } from '../settings.ts';
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../../../..');
 
+/**
+ * Everything the app writes lives in one directory: the database and the access
+ * token. Setting only `OUTREACH_DB_PATH` is enough — the directory follows it, so a
+ * container with just a database path still keeps its token on the same volume.
+ */
 export const dataDir = process.env.OUTREACH_DATA_DIR
   ? resolve(process.env.OUTREACH_DATA_DIR)
-  : resolve(repoRoot, 'data');
+  : process.env.OUTREACH_DB_PATH
+    ? dirname(resolve(process.env.OUTREACH_DB_PATH))
+    : resolve(repoRoot, 'data');
 
 export const dbPath = process.env.OUTREACH_DB_PATH
   ? resolve(process.env.OUTREACH_DB_PATH)

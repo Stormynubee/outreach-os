@@ -25,6 +25,7 @@
     "verify:ui": "node scripts/verify-ui.mjs",
     "verify:auth": "node scripts/verify-auth.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs",
+    "verify:engine": "node scripts/verify-engine.mjs",
     "tunnel": "cloudflared tunnel --url http://localhost:4317"
   },
   "devDependencies": {

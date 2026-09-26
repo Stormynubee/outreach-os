@@ -29,7 +29,7 @@ RUN npm run build
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    OUTREACH_DB_PATH=/data/app.db
+    OUTREACH_DATA_DIR=/data
 
 # The platform sets PORT; this is only a default for a plain `docker run`.
 ENV PORT=4317

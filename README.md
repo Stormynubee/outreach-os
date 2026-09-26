@@ -209,6 +209,7 @@ map data timestamp are shown in the app footer, as both services require.
 | `npm run verify` | Confirms the API and built UI serve together and the event stream works |
 | `npm run verify:auth` | Checks the access-token gate and CORS |
 | `npm run verify:deploy <url>` | Checks a hosted copy: shell, assets, deep links, no leaked secret |
+| `npm run verify:engine <url> [token]` | Checks a self-contained deployment that serves its own interface, including that data survives a restart |
 | `npm run tunnel` | Publishes the engine over HTTPS (cloudflared) for a hosted interface to reach |
 | `npm run e2e` | Full pipeline against a live town, then checks the ranking invariants |
 | `npm run smoke` | Verifies the Overpass query shape and geocoding contract still hold |
@@ -271,6 +272,39 @@ serverless platform (Vercel, Netlify, Lambda, Cloudflare Workers): there is no
 persistent filesystem for the database, no always-on process for the worker, and the
 per-domain rate limiting assumes one long-lived scheduler. Vercel's own documentation
 puts it plainly — SQLite "can't be used with Vercel".
+
+### Fully independent, one container
+
+There is a `Dockerfile` that builds the engine and the interface into a single image.
+One container is the whole app: it serves the interface and the API on the same origin,
+so there is nothing to point at anything and no tunnel involved.
+
+```bash
+docker build -t outreach-os .
+docker run -d -p 4317:4317 -v outreach-data:/data outreach-os
+```
+
+That works on any host with a **persistent volume mounted at `/data`** — a container
+platform, a VPS, or a spare machine at home. The volume is not optional: it holds both
+the SQLite database and the generated access token, so without it every restart starts
+from an empty workspace. `npm run verify:engine <url> <token>` checks all of this,
+including that data survives a restart.
+
+Environment variables it understands:
+
+| Variable | Purpose |
+|---|---|
+| `OUTREACH_DATA_DIR` | Where the database and token live. `/data` in the image. |
+| `OUTREACH_DB_PATH` | The database file alone, if you want it somewhere else. |
+| `OUTREACH_API_TOKEN` | Set the access token explicitly instead of generating one. |
+| `OUTREACH_ALLOWED_ORIGINS` | Comma-separated CORS allow-list for a separately hosted interface. |
+| `OUTREACH_CONTACT_EMAIL` | Seeds the OSM contact on first boot, so discovery is not disabled. |
+| `OUTREACH_DISPLAY_NAME` | Seeds the name shown in the interface. |
+| `HOST` / `PORT` | Bind address and port. `HOST=0.0.0.0` in the image. |
+
+On a container platform, remember that the crawler now runs from a datacenter IP.
+Cloudflare-protected small-business sites block those more aggressively than a
+residential connection, so enrichment may find fewer contacts than it does at home.
 
 ### Hosting the interface separately
 
