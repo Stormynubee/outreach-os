@@ -12,6 +12,7 @@
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "@fastify/static": "^10.1.4",
+    "@libsql/client": "^0.18.0",
     "@outreach/shared": "*",
     "better-sqlite3": "^13.0.3",
     "cheerio": "^1.2.0",
