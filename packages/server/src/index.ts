@@ -28,14 +28,30 @@ import { createWorker } from './queue/worker.ts';
 import { registerRoutes } from './routes/index.ts';
 import { ensureApiToken, presentedToken, tokenFilePath, tokenMatches } from './lib/auth.ts';
 import { SCORE_VERSION } from '@outreach/shared';
+import { DEFAULT_SETTINGS } from './settings.ts';
 import type { Settings } from './settings.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webDist = resolve(here, '../../web/dist');
 const PORT = Number(process.env.PORT ?? 4317);
+// Localhost by default. A container needs 0.0.0.0 so the platform can route to it.
+const HOST = process.env.HOST ?? '127.0.0.1';
 
 const db = getDb();
 let settings = readSettings(db);
+
+// Seed settings from the environment on first boot, so a fresh deployment is usable
+// immediately instead of starting with discovery disabled.
+if (process.env.OUTREACH_CONTACT_EMAIL?.trim() || process.env.OUTREACH_DISPLAY_NAME?.trim()) {
+  const seed: Partial<Settings> = {};
+  if (process.env.OUTREACH_CONTACT_EMAIL?.trim() && !settings.contactEmail.trim()) {
+    seed.contactEmail = process.env.OUTREACH_CONTACT_EMAIL.trim();
+  }
+  if (process.env.OUTREACH_DISPLAY_NAME?.trim() && settings.displayName === DEFAULT_SETTINGS.displayName) {
+    seed.displayName = process.env.OUTREACH_DISPLAY_NAME.trim();
+  }
+  if (Object.keys(seed).length > 0) settings = writeSettings(db, seed);
+}
 
 // ------------------------------------------------------------------ event bus
 type Listener = (event: ProgressEvent) => void;
@@ -187,7 +203,6 @@ if (existsSync(webDist)) {
 
 // ------------------------------------------------------------------ boot
 app.get('/api/health', async () => ({ ok: true, mirrors: overpass.stats() }));
-
 const staleScores = (
   db.prepare('SELECT COUNT(*) AS n FROM business WHERE score_version IS NOT ? OR scored_at IS NULL').get(SCORE_VERSION) as {
     n: number;
@@ -195,8 +210,8 @@ const staleScores = (
 ).n;
 
 try {
-  await app.listen({ port: PORT, host: '127.0.0.1' });
-  app.log.info(`Outreach OS listening on http://127.0.0.1:${PORT}`);
+  await app.listen({ port: PORT, host: HOST });
+  app.log.info(`Outreach OS listening on http://${HOST}:${PORT}`);
   app.log.info(`Database: ${(await import('./db/client.ts')).dbPath}`);
   if (apiToken.created) {
     app.log.info(

@@ -1,0 +1,18 @@
+# Keep the build context small, and above all keep local state out of the image.
+.git
+.vercel
+.github
+node_modules
+**/node_modules
+
+# Your database and access token live here. These must never be baked into an image.
+data
+
+# Build output is produced inside the image.
+**/dist
+.ui-smoke
+coverage
+
+*.log
+.DS_Store
+Thumbs.db
