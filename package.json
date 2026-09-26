@@ -1,0 +1,32 @@
+{
+  "name": "outreach-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-business discovery, enrichment and outreach tracking. No cloud, no API keys.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c green,cyan \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm -w @outreach/server run dev",
+    "dev:web": "npm -w @outreach/web run dev",
+    "build": "npm -w @outreach/web run build",
+    "start": "npm -w @outreach/server run start",
+    "test": "npm -w @outreach/server run test",
+    "typecheck": "tsc -p packages/server/tsconfig.json && tsc -p packages/web/tsconfig.json",
+    "smoke": "node scripts/preflight.mjs",
+    "mirrors": "node scripts/diagnose-mirrors.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "verify": "node scripts/verify-app.mjs",
+    "verify:ui": "node scripts/verify-ui.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1"
+  }
+}

@@ -1,0 +1,70 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Two things make bug reports much faster to act on:
+
+        - `npm run mirrors` output, if the problem involves discovery. The public
+          Overpass mirrors are flaky and are often the real culprit.
+        - The browser console or terminal output around the failure.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what actually happened.
+      placeholder: |
+        I searched "Frome, England" and it found 103 businesses, but the enrichment
+        stayed on "queued" and never progressed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Discover
+        2. Enter ...
+        3. Press Find businesses
+        4. See ...
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, macOS 15.2, Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node -v`
+      placeholder: v24.11.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: mirrors
+    attributes:
+      label: Mirror health
+      description: Output of `npm run mirrors`, if the problem involves discovery.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Terminal output, or the browser console. Remove anything private first.
+      render: text
+    validations:
+      required: false

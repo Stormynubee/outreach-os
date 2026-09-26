@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (Node ${{ matrix.node }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: '22.x'
+          - os: ubuntu-latest
+            node: '24.x'
+          - os: windows-latest
+            node: '24.x'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build the interface
+        run: npm run build
+
+      # Mounts the real UI in a DOM and asserts it renders — catches the blank-page
+      # class of failure that a typecheck and a build both happily pass.
+      - name: Interface smoke test
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run verify:ui
+
+  # The end-to-end script talks to live OpenStreetMap mirrors and real websites, so
+  # it is deliberately not part of CI: those services are donated, heavily loaded,
+  # and a failure there says nothing about this code.
+  e2e:
+    name: End-to-end (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start the server
+        run: npm start &
+      - name: Wait for the API
+        run: npx wait-on http://127.0.0.1:4317/api/health --timeout 60000
+      - name: Run the pipeline against a live town
+        run: npm run e2e

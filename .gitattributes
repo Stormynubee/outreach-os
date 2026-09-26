@@ -1,0 +1,26 @@
+# Normalise line endings so a Windows clone and a Linux clone produce identical diffs.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF for cmd.exe.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.pdf binary
+
+# SQLite databases should not be diffed or merged.
+*.db binary
+*.db-wal binary
+*.db-shm binary
+
+# Keep lockfiles out of language statistics and diff noise.
+package-lock.json -diff linguist-generated

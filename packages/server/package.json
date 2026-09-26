@@ -1,0 +1,28 @@
+{
+  "name": "@outreach/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false --ignore \"../../data/**\" src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.4",
+    "@outreach/shared": "*",
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "fastify": "^5.12.5",
+    "libphonenumber-js": "^1.13.14",
+    "tldts": "^7.4.15",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.2"
+  }
+}

@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vite/
+coverage/
+.ui-smoke/
+
+# Local database — your leads live here. Back it up, but never commit it.
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Local tool state
+.commandcode/
+.vercel/
+.idea/
+
+# Environment
+.env
+.env.local
+*.local
+
+# Logs and OS noise
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest an improvement or a new capability
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the "Rules that are not negotiable" section in
+        [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md). Requests that would break the
+        politeness or honesty rules cannot be accepted, however useful they are.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve
+      description: Describe the situation you are in, not just the feature you want.
+      placeholder: |
+        When I work through a long list I lose track of which businesses I have already
+        looked at but decided not to contact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Does this respect the project's rules?
+      options:
+        - label: It does not require spoofing a browser, ignoring robots.txt, or parallel requests to one domain
+          required: true
+        - label: It does not require reading a platform that forbids or walls automated access
+          required: true
+        - label: It does not require inventing data where a value could not be obtained
+          required: true
