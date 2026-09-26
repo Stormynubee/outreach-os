@@ -207,6 +207,9 @@ map data timestamp are shown in the app footer, as both services require.
 | `npm run typecheck` | Strict TypeScript across both packages |
 | `npm run verify:ui` | Mounts the real UI in a DOM and asserts it renders, including the splash and the guided tour |
 | `npm run verify` | Confirms the API and built UI serve together and the event stream works |
+| `npm run verify:auth` | Checks the access-token gate and CORS |
+| `npm run verify:deploy <url>` | Checks a hosted copy: shell, assets, deep links, no leaked secret |
+| `npm run tunnel` | Publishes the engine over HTTPS (cloudflared) for a hosted interface to reach |
 | `npm run e2e` | Full pipeline against a live town, then checks the ranking invariants |
 | `npm run smoke` | Verifies the Overpass query shape and geocoding contract still hold |
 | `npm run mirrors` | Times the real query against every Overpass mirror |
@@ -249,8 +252,8 @@ Defaults live in `packages/server/src/settings.ts`.
 
 ## Deployment
 
-**Outreach OS is a long-running, stateful process, and it needs a persistent disk.**
-That shapes where it can run:
+**The engine is a long-running, stateful process and needs a persistent disk.** That
+shapes where it can run:
 
 - The enrichment worker runs continuously, and a full discovery plus enrichment pass
   takes minutes to tens of minutes even when the network is fast. The delays are
@@ -259,28 +262,67 @@ That shapes where it can run:
   that must survive restarts. It is also the resume mechanism: killing the process
   mid-discovery and restarting it continues from the last completed tile.
 
-So it runs well on:
+So the **engine** runs on your own machine, or on a VPS or container host with a
+persistent volume (mount it at `data/` and point `OUTREACH_DB_PATH` at it).
 
-- **Your own machine** — the intended way, `npm start`, one process on :4317
-- **A VPS or container host with a persistent volume** (any small instance; a volume
-  mounted at `data/`, and `OUTREACH_DB_PATH` pointed at it)
+The **interface** is a static build and can be hosted anywhere, including a static
+host, as long as it can reach the engine. The engine itself cannot run on a stateless
+serverless platform (Vercel, Netlify, Lambda, Cloudflare Workers): there is no
+persistent filesystem for the database, no always-on process for the worker, and the
+per-domain rate limiting assumes one long-lived scheduler. Vercel's own documentation
+puts it plainly — SQLite "can't be used with Vercel".
 
-It does **not** run on stateless serverless platforms (Vercel, Netlify, Lambda,
-Cloudflare Workers) as a whole application: there is no persistent filesystem for the
-database, no always-on process for the worker, and the per-domain rate limiting assumes
-one long-lived scheduler. The **frontend** is a static Vite build and can be hosted
-anywhere, including a static host, if you point it at a running API — but the API and
-worker still need a real disk and a long-lived process.
+### Hosting the interface separately
+
+The interface is served by the engine when you run `npm start`, so for local use there
+is nothing to do. To reach it from a hosted copy:
+
+```bash
+npm start          # terminal 1 — the engine, on :4317
+npm run tunnel     # terminal 2 — a public HTTPS address for it (cloudflared)
+```
+
+`npm run tunnel` prints an address like
+`https://something-something.trycloudflare.com`. A quick tunnel needs no account, and
+the address changes each time it restarts.
+
+Then, in the **hosted** interface, open **Settings → Engine connection**, paste that
+address and the access token, and save. The token lives at `data/api-token.txt` and is
+printed by the engine on its first start. It is kept in your browser's local storage,
+never baked into the deployed bundle.
+
+The hosted copy is a thin client: your machine still does the crawling and still holds
+the data, so the tunnel only has to be up while you are using it.
+
+### The access token
+
+The app deliberately has no user accounts — it assumes one trusted operator. That is
+safe while it listens only on `127.0.0.1`, but the moment it is reachable through a
+tunnel, anyone with the address could read every lead, change the pipeline and make
+your machine issue outbound requests.
+
+So the engine issues a token on first start and requires it on every `/api` route
+(`/api/health` stays open so a monitor can check liveness). It is accepted as a bearer
+header, or as `?token=` for the two cases that cannot set headers: the live event
+stream and CSV downloads.
+
+To rotate it, stop the engine, delete `data/api-token.txt` and start it again.
 
 Overpass's usage policy also asks that applications consuming it not be deployed on
 fast-deployment platforms, which is worth respecting to keep the service available.
 
-If you expose the API beyond localhost, keep it behind authentication: it has no login
-by design, because it assumes a single trusted user.
-
 ---
 
 ## Troubleshooting
+
+**"Could not reach the engine."**
+Either the engine is not running, or the address in Settings is stale. Quick tunnel
+addresses change every time the tunnel restarts, so update it in
+Settings → Engine connection. `npm run verify:auth` checks the engine directly;
+`npm run verify:deploy <url>` checks a hosted copy.
+
+**"The engine rejected the request."**
+The token in Settings does not match `data/api-token.txt`.
 
 **"The public Overpass mirrors are not responding right now."**
 Public Overpass mirrors are heavily loaded and genuinely flaky, and they sometimes

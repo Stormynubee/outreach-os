@@ -1,8 +1,9 @@
 /**
  * Typed client for the Outreach OS API.
  *
- * Everything in here talks to `/api/*` (proxied to the Fastify server by Vite) and
- * returns the exact types from `@outreach/shared` — those are imported, never redeclared.
+ * Requests go to `/api/*` on the same origin by default, or to a separate engine
+ * when one is configured (see `lib/engine.ts`) — for example a tunnelled copy of the
+ * server running on your own machine.
  *
  * Responses are normalised through small runtime guards: if the backend is an older build
  * and a field is missing, the field is replaced with a safe default rather than blowing up
@@ -38,7 +39,7 @@ import {
   TASK_STATUSES,
 } from '@outreach/shared';
 
-const BASE = '/api';
+import { engineApiBase, getEngineToken, isEngineSeparate } from './engine';
 
 /* ------------------------------------------------------------------ *
  * Errors
@@ -57,7 +58,14 @@ export class ApiError extends Error {
 /** Turn anything thrown by a query/mutation into something a human can read. */
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 0) return 'Could not reach the API server on port 4317.';
+    if (error.status === 0) {
+      return isEngineSeparate()
+        ? 'Could not reach the engine. Check that it is running and that the address in Settings is still correct.'
+        : 'Could not reach the API server on port 4317.';
+    }
+    if (error.status === 401) {
+      return 'The engine rejected the request. Check the access token in Settings.';
+    }
     if (error.status === 404) {
       return 'This endpoint is not live on the server yet (404). It will fill in once the API ships.';
     }
@@ -67,6 +75,12 @@ export function describeError(error: unknown): string {
   }
   if (error instanceof Error && error.message) return error.message;
   return 'Something went wrong.';
+}
+
+/** Auth headers, sent only when a token has been configured. */
+function authHeaders(): Record<string, string> {
+  const token = getEngineToken();
+  return token ? { authorization: `Bearer ${token}` } : {};
 }
 
 /* ------------------------------------------------------------------ *
@@ -499,12 +513,12 @@ function serverMessage(text: string): string | null {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, signal } = options;
-  const headers: Record<string, string> = { accept: 'application/json' };
+  const headers: Record<string, string> = { accept: 'application/json', ...authHeaders() };
   if (body !== undefined) headers['content-type'] = 'application/json';
 
   let response: Response;
   try {
-    response = await fetch(`${BASE}${path}`, {
+    response = await fetch(`${engineApiBase()}${path}`, {
       method,
       headers,
       signal,
@@ -674,4 +688,69 @@ export async function saveSettings(settings: PublicSettings): Promise<PublicSett
   return normalizeSettings(await request<unknown>('/settings', { method: 'PUT', body: settings }));
 }
 
-export const LEAD_EXPORT_URL = '/api/export/leads.csv';
+/**
+ * Download the lead list as CSV.
+ *
+ * Fetched with `fetch` rather than linked directly, because a plain anchor cannot
+ * carry the Authorization header the engine may require; the response is turned into
+ * a blob and handed to the browser as a file.
+ */
+export async function downloadLeadsCsv(query: LeadQuery = {}): Promise<void> {
+  const response = await fetch(`${engineApiBase()}/export/leads.csv?${leadQueryString(query)}`, {
+    headers: { accept: 'text/csv', ...authHeaders() },
+  });
+  if (!response.ok) {
+    throw new ApiError(`The export failed (HTTP ${response.status}).`, response.status);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = `outreach-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export interface EngineProbe {
+  ok: boolean;
+  message: string;
+  version?: string;
+  leads?: number;
+}
+
+/**
+ * Check a candidate engine address before saving it, so a wrong URL or a missing
+ * token is reported in the interface instead of as an empty dashboard.
+ */
+export async function probeEngine(url: string, token: string): Promise<EngineProbe> {
+  const base = url.trim() ? `${url.trim().replace(/\/+$/, '').replace(/\/api$/i, '')}/api` : '/api';
+  const headers: Record<string, string> = { accept: 'application/json' };
+  if (token.trim()) headers.authorization = `Bearer ${token.trim()}`;
+
+  try {
+    const response = await fetch(`${base}/status`, { headers });
+    if (response.status === 401) {
+      return { ok: false, message: 'The engine is reachable but rejected the token.' };
+    }
+    if (!response.ok) {
+      return { ok: false, message: `The engine answered with HTTP ${response.status}.` };
+    }
+    const body: unknown = await response.json();
+    const rec = isRecord(body) ? body : {};
+    const counts = isRecord(rec.counts) ? rec.counts : {};
+    return {
+      ok: true,
+      message: 'Connected.',
+      version: asString(rec.version) ?? 'unknown',
+      leads: asNumber(counts.leads) ?? 0,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: 'Nothing answered at that address. Check the URL and that the engine is running.',
+    };
+  }
+}

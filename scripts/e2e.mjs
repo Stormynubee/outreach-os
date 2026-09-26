@@ -4,8 +4,19 @@
  *
  * Exercises discovery, enrichment, the task tick/untick invariant, and CSV export.
  */
+import { readFileSync } from 'node:fs';
+
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4317';
 const LOCATION = process.argv[2] ?? 'Frome, Somerset, England';
+
+// The engine issues an access token on first boot and requires it for /api routes.
+let AUTH = {};
+try {
+  const token = readFileSync(new URL('../data/api-token.txt', import.meta.url), 'utf8').trim();
+  if (token) AUTH = { authorization: `Bearer ${token}` };
+} catch {
+  // No token file yet — the engine is running without one.
+}
 
 /**
  * The server buckets everything by LOCAL calendar day, so the script must too.
@@ -30,7 +41,7 @@ const record = (name, ok, detail = '') => {
 const api = async (path, init) => {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...AUTH, ...(init?.headers ?? {}) },
   });
   const text = await res.text();
   let body;
@@ -343,7 +354,7 @@ console.log('\n5. Outreach to-do list (tick and untick)');
 // ---------------------------------------------------------------- 6. export
 console.log('\n6. CSV export');
 {
-  const res = await fetch(`${BASE}/api/export/leads.csv`);
+  const res = await fetch(`${BASE}/api/export/leads.csv`, { headers: AUTH });
   const bytes = new Uint8Array(await res.arrayBuffer());
   // fetch's text() strips a leading BOM, so check the raw bytes.
   const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;

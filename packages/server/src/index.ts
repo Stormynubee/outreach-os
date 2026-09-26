@@ -4,13 +4,14 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import cors from '@fastify/cors';
 import type { ProgressEvent } from '@outreach/shared';
 
 // Windows prefers AAAA records, and a host with no working IPv6 route hangs until
 // the connect timeout — roughly 20s of dead time per request.
 dns.setDefaultResultOrder('ipv4first');
 
-import { readSettings, writeSettings, getDb, closeDb } from './db/client.ts';
+import { readSettings, writeSettings, getDb, closeDb, dataDir } from './db/client.ts';
 import { createBusinessRepo } from './db/businesses.ts';
 import { createJobQueue } from './db/jobs.ts';
 import { createTaskRepo } from './db/tasks.ts';
@@ -25,6 +26,7 @@ import { createSiteScraper } from './enrich/scrapeSite.ts';
 import { createSocialChecker } from './enrich/checkSocial.ts';
 import { createWorker } from './queue/worker.ts';
 import { registerRoutes } from './routes/index.ts';
+import { ensureApiToken, presentedToken, tokenFilePath, tokenMatches } from './lib/auth.ts';
 import { SCORE_VERSION } from '@outreach/shared';
 import type { Settings } from './settings.ts';
 
@@ -112,6 +114,38 @@ const worker = createWorker({
 // ------------------------------------------------------------------ app
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, bodyLimit: 1024 * 1024 });
 
+// The interface is often served from somewhere else (a static host) while the engine
+// runs here, which makes every call cross-origin. An explicit allow-list is used when
+// configured; otherwise the origin is reflected, and the token below is what actually
+// protects the data.
+const allowedOrigins = (process.env.OUTREACH_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+await app.register(cors, {
+  origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['content-type', 'authorization', 'accept'],
+  maxAge: 86_400,
+});
+
+const apiToken = ensureApiToken(dataDir);
+
+app.addHook('onRequest', async (request, reply) => {
+  if (!apiToken.token) return;
+  if (!request.url.startsWith('/api/')) return;
+  // Health is left open so a monitor or a tunnel can check liveness without the secret.
+  if (request.url.startsWith('/api/health')) return;
+
+  if (!tokenMatches(apiToken.token, presentedToken(request))) {
+    await reply.code(401).send({
+      error:
+        'This engine requires an access token. Add it under Settings → Engine connection in the interface.',
+    });
+  }
+});
+
 registerRoutes(app, {
   db,
   repo,
@@ -164,6 +198,11 @@ try {
   await app.listen({ port: PORT, host: '127.0.0.1' });
   app.log.info(`Outreach OS listening on http://127.0.0.1:${PORT}`);
   app.log.info(`Database: ${(await import('./db/client.ts')).dbPath}`);
+  if (apiToken.created) {
+    app.log.info(
+      `Created an API access token at ${tokenFilePath(dataDir)}. The interface needs it once the engine is reachable from anywhere other than this machine.`,
+    );
+  }
   if (!settings.contactEmail.trim()) {
     app.log.warn(
       'No contact email set. OpenStreetMap requires every request to identify a real contact, so discovery is disabled until you set one in Settings.',

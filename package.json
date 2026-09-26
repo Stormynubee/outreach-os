@@ -22,7 +22,10 @@
     "mirrors": "node scripts/diagnose-mirrors.mjs",
     "e2e": "node scripts/e2e.mjs",
     "verify": "node scripts/verify-app.mjs",
-    "verify:ui": "node scripts/verify-ui.mjs"
+    "verify:ui": "node scripts/verify-ui.mjs",
+    "verify:auth": "node scripts/verify-auth.mjs",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
+    "tunnel": "cloudflared tunnel --url http://localhost:4317"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

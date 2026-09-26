@@ -5,6 +5,7 @@ import type { PublicSettings } from '@outreach/shared';
 import { Link } from 'wouter';
 
 import { Card, CardTitle, StatRow } from '../components/Card';
+import { EngineConnectionCard } from '../components/EngineConnection';
 import { ErrorState, LoadingState } from '../components/EmptyState';
 import { NumberInput, Select, TextArea, TextInput } from '../components/Field';
 import { PageHeader } from '../components/PageHeader';
@@ -106,6 +107,8 @@ export default function SettingsPage(): ReactElement {
       />
 
       {settings.isLoading ? <LoadingState label="Loading settings" rows={4} /> : null}
+
+      <EngineConnectionCard />
 
       {settings.isError ? (
         <ErrorState

@@ -3,13 +3,19 @@ import { useEffect, useState } from 'react';
 import type { ProgressEvent } from '@outreach/shared';
 
 import { asNumber, asString, isRecord, oneOf } from './api';
+import { engineApiBase, engineAuthQuery } from './engine';
 
 export type DiscoveryProgressEvent = Extract<ProgressEvent, { type: 'discovery' }>;
 export type QueueProgressEvent = Extract<ProgressEvent, { type: 'queue' }>;
 export type LogProgressEvent = Extract<ProgressEvent, { type: 'log' }>;
 export type LeadProgressEvent = Extract<ProgressEvent, { type: 'lead' }>;
 
-export const EVENTS_URL = '/api/events';
+/** EventSource cannot set headers, so the token travels in the query string. */
+export function eventsUrl(): string {
+  const base = `${engineApiBase()}/events`;
+  const query = engineAuthQuery();
+  return query ? `${base}?${query}` : base;
+}
 
 /** Lenient parser: an unrecognised frame is dropped instead of throwing mid-stream. */
 export function parseProgressEvent(raw: unknown): ProgressEvent | null {
@@ -126,7 +132,7 @@ export function useProgressStream(options: { enabled?: boolean } = {}): Progress
 
     const connect = () => {
       if (disposed) return;
-      source = new EventSource(EVENTS_URL);
+      source = new EventSource(eventsUrl());
 
       source.onopen = () => {
         attempt = 0;

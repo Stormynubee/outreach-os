@@ -20,7 +20,7 @@ import {
   IconPhone,
   IconSearch,
 } from '../components/icons';
-import { LEAD_EXPORT_URL } from '../lib/api';
+import { describeError, downloadLeadsCsv } from '../lib/api';
 import { cx } from '../lib/cx';
 import { formatCompact, formatNumber, relativeTime } from '../lib/format';
 import { ALL_CATEGORIES, readCategoryPref, writeCategoryPref } from '../lib/prefs';
@@ -83,6 +83,8 @@ export default function Leads(): ReactElement {
   const [sort, setSort] = useState<SortKey>('score');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const debouncedSearch = useDebouncedValue(searchInput, 350);
 
@@ -133,6 +135,16 @@ export default function Leads(): ReactElement {
     applyCategory(ALL_CATEGORIES);
   };
 
+  // Exporting goes through fetch rather than a plain link so it carries the engine
+  // token, and it reuses the active filters so the file matches what is on screen.
+  const onExport = (): void => {
+    setExportError(null);
+    setExporting(true);
+    downloadLeadsCsv(query)
+      .catch((error: unknown) => setExportError(describeError(error)))
+      .finally(() => setExporting(false));
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -144,16 +156,26 @@ export default function Leads(): ReactElement {
             : `${formatNumber(total)} business${total === 1 ? '' : 'es'} · ${activeCategoryLabel}`
         }
         actions={
-          <a
-            href={LEAD_EXPORT_URL}
-            download="leads.csv"
-            className="inline-flex items-center gap-2 rounded-pill bg-card px-4 py-2.5 text-[13px] font-bold text-ink shadow-card"
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={exporting}
+            className={cx(
+              'inline-flex items-center gap-2 rounded-pill bg-card px-4 py-2.5 text-[13px] font-bold text-ink shadow-card',
+              exporting && 'opacity-60',
+            )}
           >
             <IconDownload className="h-4 w-4" />
-            Export CSV
-          </a>
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
         }
       />
+
+      {exportError ? (
+        <p role="alert" className="text-[13px] font-bold text-ink">
+          {exportError}
+        </p>
+      ) : null}
 
       <Card>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

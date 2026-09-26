@@ -3,7 +3,18 @@
  * together on one port, plus the SSE progress stream.
  *   node scripts/verify-app.mjs
  */
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4317';
+
+// The engine issues an access token on first boot and requires it for /api routes.
+const tokenPath = resolve(repo, 'data/api-token.txt');
+const TOKEN = existsSync(tokenPath) ? readFileSync(tokenPath, 'utf8').trim() : '';
+const authHeaders = TOKEN ? { authorization: `Bearer ${TOKEN}` } : {};
+const api = (path) => fetch(`${BASE}${path}`, { headers: authHeaders });
 
 const results = [];
 const record = (name, ok, detail = '') => {
@@ -51,7 +62,7 @@ const deep = await fetch(`${BASE}/leads`);
 const deepText = await deep.text();
 record('deep links fall through to the SPA', deep.ok && /<div id="root">|<script/.test(deepText), `HTTP ${deep.status}`);
 
-const missingApi = await fetch(`${BASE}/api/does-not-exist`);
+const missingApi = await api('/api/does-not-exist');
 record('unknown API routes still return JSON, not the SPA', missingApi.status === 404 && (await missingApi.json()).error !== undefined, `HTTP ${missingApi.status}`);
 
 // Every endpoint the UI depends on.
@@ -70,14 +81,14 @@ const endpoints = [
 ];
 let ok = 0;
 for (const [path, expected] of endpoints) {
-  const res = await fetch(`${BASE}${path}`);
+  const res = await api(path);
   if (res.status === expected) ok++;
   else console.log(`          ${path} -> HTTP ${res.status}`);
 }
 record('every endpoint the UI calls is live', ok === endpoints.length, `${ok}/${endpoints.length}`);
 
 // The status payload the Home and Discover pages read.
-const status = await (await fetch(`${BASE}/api/status`)).json();
+const status = await (await api('/api/status')).json();
 record(
   'status reports readiness, counts and attribution',
   typeof status.discoveryReady === 'boolean' && status.counts && status.attribution?.url?.includes('openstreetmap'),
@@ -92,7 +103,7 @@ const sse = await new Promise((resolve) => {
     resolve({ ok: false, reason: 'no frame within 8s' });
   }, 8000);
 
-  fetch(`${BASE}/api/events`, { signal: controller.signal })
+  fetch(`${BASE}/api/events`, { signal: controller.signal, headers: authHeaders })
     .then(async (res) => {
       if (!res.ok || !res.body) {
         clearTimeout(timer);

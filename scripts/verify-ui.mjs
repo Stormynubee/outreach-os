@@ -42,7 +42,12 @@ await build({
   format: 'iife',
   jsx: 'automatic',
   logLevel: 'silent',
-  define: { 'process.env.NODE_ENV': '"production"' },
+  define: {
+    'process.env.NODE_ENV': '"production"',
+    // Vite normally provides this; esbuild does not, and the app must cope with it
+    // being absent as well as present.
+    'import.meta.env': JSON.stringify({ MODE: 'test', DEV: false, PROD: true }),
+  },
   alias: { '@outreach/shared': resolve(repo, 'packages/shared/src/index.ts') },
   plugins: [
     {

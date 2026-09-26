@@ -10,6 +10,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fastify/cors": "^11.3.0",
     "@fastify/static": "^10.1.4",
     "@outreach/shared": "*",
     "better-sqlite3": "^13.0.3",
