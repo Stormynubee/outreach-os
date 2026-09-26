@@ -10,6 +10,12 @@ you a to-do list to work through them.
 Everything runs on your own machine against free OpenStreetMap services. No cloud
 account, no API keys, no per-request billing.
 
+> **Moving this to another computer, or picking the project up cold?**
+> Read **[HANDOVER.md](./HANDOVER.md)**. It records the current state of the project,
+> exactly which files are local and must be copied (only `data/` is irreplaceable), how
+> to run every deployment path, the accounts involved, the constraints that must not be
+> broken, and the work currently in flight.
+
 [![CI](https://github.com/Stormynubee/outreach-os/actions/workflows/ci.yml/badge.svg)](https://github.com/Stormynubee/outreach-os/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.5-black.svg)](./package.json)
