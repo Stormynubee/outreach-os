@@ -71,10 +71,13 @@ if (script) {
     secret === '' || !bundle.includes(secret),
     secret === '' ? 'no local token to compare against' : 'compared against the local token value',
   );
+  // The variable NAME legitimately appears as a lookup key; what must never appear is
+  // a non-empty value, which is what Vite inlining a build-time token would produce.
+  const inlined = /VITE_ENGINE_TOKEN"\s*:\s*"([^"]*)"/.exec(bundle);
   record(
-    'no build-time engine token was inlined',
-    !/VITE_ENGINE_TOKEN/.test(bundle),
-    'the token is only ever read from local storage at runtime',
+    'no build-time engine token value was inlined',
+    inlined === null || inlined[1] === '',
+    inlined ? `inlined value length ${inlined[1].length}` : 'no inlined value found',
   );
 }
 
